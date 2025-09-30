@@ -1,0 +1,376 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Infinite Pasteboard — Paste • Move • Resize • Draw</title>
+  <style>
+    :root{
+      /* Fresh palette */
+      --bg: #0B0F1A;
+      --panel: #0F1526;
+      --text: #EAF2FF;
+      --muted: #A6B7FF;
+      --accent: #78E3D5;   /* mint */
+      --accent2:#9A8CFF;   /* lilac */
+      --accent3:#FFB86B;   /* apricot */
+      --danger:#FF6B81;    /* coral */
+      --grid: #1C2747;
+      --card:#0E1530;
+      --stroke:#2A3A70;
+      --shadow: 0 10px 30px rgba(0,0,0,.4);
+    }
+    html,body{height:100%;margin:0;background:radial-gradient(circle at 20% 10%, #0f1834, transparent 35%), radial-gradient(circle at 80% 90%, #0c1329, transparent 40%), var(--bg);color:var(--text);font:14px/1.45 system-ui, Segoe UI, Roboto, Ubuntu, Arial}
+    .app{height:100%;display:grid;grid-template-rows:auto 1fr}
+
+    /* Top bar */
+    .bar{display:flex;align-items:center;gap:.5rem;padding:.6rem .75rem;background:linear-gradient(180deg, var(--panel), #0b0f1a);border-bottom:1px solid var(--stroke);position:sticky;top:0;z-index:20}
+    .bar .btn{display:inline-flex;align-items:center;gap:.35rem;padding:.42rem .7rem;border-radius:10px;border:1px solid var(--stroke);background:#111a38;color:var(--text);cursor:pointer;box-shadow:var(--shadow);user-select:none}
+    .bar .btn:hover{background:#16224b}
+    .bar .sep{width:1px;height:24px;background:#223166;margin:0 .25rem}
+    .bar .hint{opacity:.85}
+    .mode{display:flex;gap:.35rem}
+    .swatch{width:18px;height:18px;border-radius:4px;border:1px solid #0006;cursor:pointer;box-shadow:0 0 0 2px #0003 inset}
+    .swatch.selected{outline:2px solid white}
+
+    /* Board */
+    .wrap{position:relative;overflow:hidden}
+    .board{position:absolute;inset:0;user-select:none;
+      background-image: radial-gradient(circle at center, rgba(255,255,255,.05) 1px, transparent 1px),
+                        linear-gradient(var(--grid) 1px, transparent 1px),
+                        linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+      background-size: 16px 16px, 64px 64px, 64px 64px;
+      /* grid is infinite by keeping board fixed and shifting background-position in JS */
+    }
+    .world{position:absolute;inset:0;transform-origin:0 0}
+    svg.overlay{position:absolute;inset:0;pointer-events:none;transform-origin:0 0}
+
+    /* Drop pointer */
+    .cursor{position:absolute; width:10px;height:10px;border:2px solid var(--accent);border-radius:50%;transform:translate(-50%,-50%);pointer-events:none;box-shadow:0 0 0 2px rgba(120,227,213,.25)}
+
+    /* Items */
+    .item{position:absolute;transform:translate(-50%, -50%); box-shadow:var(--shadow)}
+    .item img{display:block;border-radius:12px}
+    .card{background:var(--card);border:1px solid var(--stroke);border-radius:14px;padding:.75rem;max-width:520px;min-width:120px}
+    .card a{color:var(--muted);text-decoration:none;word-break:break-word}
+    .card .title{font-weight:600;margin-bottom:.35rem}
+    .item.selected{outline:2px solid var(--accent)}
+
+    /* Resize handle */
+    .handles{position:absolute;inset:0;pointer-events:none}
+    .handle{position:absolute;width:12px;height:12px;background:var(--accent);border:2px solid #0a0e1c;border-radius:50%;pointer-events:auto;box-shadow:0 0 0 2px rgba(0,0,0,.25)}
+    .handle.br{right:-6px;bottom:-6px;cursor:nwse-resize}
+
+    /* Help + Toast */
+    .help{position:absolute;left:12px;bottom:12px;background:rgba(14,21,48,.8);backdrop-filter:blur(4px);border:1px solid var(--stroke);border-radius:12px;padding:.5rem .75rem;font-size:12px}
+    kbd{background:#0d142b;border:1px solid var(--stroke);border-bottom-width:2px;border-radius:6px;padding:0 .35rem}
+    .toast{position:fixed;right:14px;bottom:14px;background:#0d142b;border:1px solid var(--stroke);border-radius:10px;padding:.6rem .75rem;opacity:0;transform:translateY(6px);transition:all .25s}
+    .toast.show{opacity:1;transform:none}
+  </style>
+</head>
+<body>
+<div class="app">
+  <div class="bar">
+    <button class="btn" id="btn-export">Export JSON</button>
+    <button class="btn" id="btn-import">Import JSON</button>
+    <button class="btn" id="btn-clear" style="color:var(--danger)">Clear</button>
+    <span class="sep"></span>
+    <div class="mode">
+      <button class="btn" data-mode="select" id="mode-select">Select/Move</button>
+      <button class="btn" data-mode="pen" id="mode-pen">Draw</button>
+      <button class="btn" data-mode="arrow" id="mode-arrow">Arrow</button>
+    </div>
+    <span class="sep"></span>
+    <div class="mode" id="palette"></div>
+    <span class="hint">Click sets drop point • Paste with <kbd>Ctrl/⌘+V</kbd> • <kbd>Space</kbd>+drag to pan • <kbd>Ctrl/⌘</kbd>+wheel to zoom</span>
+  </div>
+  <div class="wrap" id="wrap">
+    <div class="board" id="board">
+      <div class="world" id="world"></div>
+      <svg class="overlay" id="overlay" xmlns="http://www.w3.org/2000/svg"></svg>
+    </div>
+    <div class="cursor" id="cursor" hidden></div>
+    <div class="help">Modes: Select / Pen / Arrow • Colors on top • Delete removes selected • Shift while drawing for straighter lines • Drag corner to resize images</div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+(() => {
+  const wrap = document.getElementById('wrap');
+  const board = document.getElementById('board');
+  const world = document.getElementById('world');
+  const overlay = document.getElementById('overlay');
+  const cursor = document.getElementById('cursor');
+  const toast = document.getElementById('toast');
+  const btnExport = document.getElementById('btn-export');
+  const btnImport = document.getElementById('btn-import');
+  const btnClear = document.getElementById('btn-clear');
+  const paletteEl = document.getElementById('palette');
+  const modeBtns = { select:document.getElementById('mode-select'), pen:document.getElementById('mode-pen'), arrow:document.getElementById('mode-arrow') };
+
+  // World transform state
+  let scale = parseFloat(localStorage.getItem('pb_scale')||'1');
+  let origin = JSON.parse(localStorage.getItem('pb_origin')||'{"x":-1000,"y":-1000}');
+  let lastClickWorld = {x:0,y:0};
+  let panning = false, spaceHeld=false; let panStart={x:0,y:0}, originStart={x:0,y:0};
+
+  // Drawing state
+  let mode = localStorage.getItem('pb_mode') || 'select';
+  const colors = ['#78E3D5','#9A8CFF','#FFB86B','#7EE17E','#E971FF','#66A3FF','#FF6B81'];
+  let strokeColor = localStorage.getItem('pb_color') || colors[0];
+  let drawing = null; // { type:'path'|'arrow', color, w, pts?, start?, tempEl }
+
+  // Model
+  let items = [];
+  try { items = JSON.parse(localStorage.getItem('pb_items')||'[]'); } catch {}
+
+  const save = () => {
+    localStorage.setItem('pb_items', JSON.stringify(items));
+    localStorage.setItem('pb_scale', String(scale));
+    localStorage.setItem('pb_origin', JSON.stringify(origin));
+    localStorage.setItem('pb_mode', mode);
+    localStorage.setItem('pb_color', strokeColor);
+  };
+
+  const showToast = (msg) => { toast.textContent = msg; toast.classList.add('show'); clearTimeout(showToast._t); showToast._t = setTimeout(()=>toast.classList.remove('show'), 1200); };
+
+  // Transform world; keep board fixed and shift grid background for infinite grid
+  function applyTransform(){
+    world.style.transform = `translate(${origin.x}px, ${origin.y}px) scale(${scale})`;
+    overlay.style.transform = `translate(${origin.x}px, ${origin.y}px) scale(${scale})`;
+    const ox = origin.x; const oy = origin.y;
+    board.style.backgroundPosition = `${ox}px ${oy}px, ${ox}px ${oy}px, ${ox}px ${oy}px`;
+    updateCursor();
+  }
+  function screenToWorld(px, py){ return { x:(px - origin.x)/scale, y:(py - origin.y)/scale }; }
+  function worldToScreen(wx, wy){ return { x: wx*scale+origin.x, y: wy*scale+origin.y }; }
+
+  // Palette UI
+  function renderPalette(){
+    paletteEl.innerHTML = '';
+    colors.forEach(c=>{
+      const s = document.createElement('div'); s.className='swatch'; s.style.background=c; if(c===strokeColor) s.classList.add('selected');
+      s.onclick = ()=>{ strokeColor=c; save(); renderPalette(); };
+      paletteEl.appendChild(s);
+    });
+    Object.keys(modeBtns).forEach(k=>{ modeBtns[k].classList.toggle('selected', k===mode); });
+  }
+  Object.entries(modeBtns).forEach(([k,btn])=> btn.onclick = ()=>{ mode=k; save(); renderPalette(); });
+
+  // Render items
+  function render(){
+    world.innerHTML = '';
+    overlay.innerHTML = '';
+
+    // SVG defs for arrowhead
+    const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+    const marker = document.createElementNS('http://www.w3.org/2000/svg', 'marker');
+    marker.setAttribute('id','arrowhead'); marker.setAttribute('viewBox','0 0 10 10'); marker.setAttribute('refX','8'); marker.setAttribute('refY','5'); marker.setAttribute('markerWidth','7'); marker.setAttribute('markerHeight','7'); marker.setAttribute('orient','auto-start-reverse');
+    const tri = document.createElementNS('http://www.w3.org/2000/svg', 'path'); tri.setAttribute('d','M 0 0 L 10 5 L 0 10 z'); tri.setAttribute('fill','#fff');
+    marker.appendChild(tri); defs.appendChild(marker); overlay.appendChild(defs);
+
+    for(const it of items){
+      if(it.type==='path' || it.type==='arrow'){
+        if(it.type==='path'){
+          const path = document.createElementNS('http://www.w3.org/2000/svg','path');
+          path.setAttribute('fill','none'); path.setAttribute('stroke-linecap','round'); path.setAttribute('stroke-linejoin','round');
+          path.setAttribute('stroke', it.color||strokeColor); path.setAttribute('stroke-width', it.w||3);
+          path.setAttribute('d', polylineToPath(it.pts||[]));
+          overlay.appendChild(path);
+        } else {
+          const line = document.createElementNS('http://www.w3.org/2000/svg','line');
+          line.setAttribute('x1', it.x1); line.setAttribute('y1', it.y1); line.setAttribute('x2', it.x2); line.setAttribute('y2', it.y2);
+          line.setAttribute('stroke', it.color||strokeColor); line.setAttribute('stroke-width', it.w||3); line.setAttribute('marker-end','url(#arrowhead)');
+          overlay.appendChild(line);
+        }
+        continue;
+      }
+
+      const el = document.createElement('div');
+      el.className = 'item';
+      el.style.left = it.x + 'px';
+      el.style.top = it.y + 'px';
+      el.dataset.id = it.id;
+
+      if(it.type === 'image'){
+        const img = document.createElement('img');
+        img.alt = 'pasted image';
+        img.src = it.data; // persistent data URL
+        if(it.w) img.style.width = it.w + 'px';
+        if(it.h) img.style.height = it.h + 'px';
+        el.appendChild(img);
+
+        // resize handle
+        const handles = document.createElement('div'); handles.className='handles';
+        const br = document.createElement('div'); br.className='handle br'; handles.appendChild(br); el.appendChild(handles);
+
+        br.addEventListener('pointerdown', (e)=>{
+          e.stopPropagation();
+          const start = {x:e.clientX,y:e.clientY,w:img.clientWidth,h:img.clientHeight};
+          const move = (ev)=>{
+            const dx = (ev.clientX - start.x)/scale; const dy = (ev.clientY - start.y)/scale;
+            const nw = Math.max(40, start.w + dx); const nh = Math.max(40, start.h + dy);
+            img.style.width = nw + 'px'; img.style.height = nh + 'px';
+          };
+          const up = ()=>{
+            it.w = img.clientWidth; it.h = img.clientHeight; save();
+            window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up);
+          };
+          window.addEventListener('pointermove', move); window.addEventListener('pointerup', up);
+        });
+      } else if(it.type === 'link'){
+        const card = document.createElement('div');
+        card.className = 'card';
+        let host = '';
+        try{ host = new URL(it.data).host; }catch{}
+        const a = document.createElement('a'); a.href = it.data; a.target = '_blank'; a.rel = 'noopener noreferrer'; a.textContent = it.data;
+        const title = document.createElement('div'); title.className='title'; title.textContent='Link';
+        const meta = document.createElement('div'); meta.style.opacity = '.6'; meta.style.marginTop = '.35rem'; meta.textContent = host;
+        card.appendChild(title); card.appendChild(a); card.appendChild(meta); el.appendChild(card);
+      } else if(it.type === 'text'){
+        const card = document.createElement('div');
+        card.className = 'card';
+        const title = document.createElement('div'); title.className='title'; title.textContent='Note';
+        const body = document.createElement('div'); body.style.whiteSpace='pre-wrap'; body.textContent = it.data;
+        card.appendChild(title); card.appendChild(body); el.appendChild(card);
+      }
+
+      // Drag to move
+      el.addEventListener('pointerdown', (e)=>{
+        e.stopPropagation();
+        selectOnly(el);
+        const start = {x:e.clientX,y:e.clientY, ix:it.x, iy:it.y};
+        const move = (ev)=>{
+          const dx = (ev.clientX - start.x)/scale; const dy = (ev.clientY - start.y)/scale;
+          it.x = start.ix + dx; it.y = start.iy + dy; el.style.left = it.x+'px'; el.style.top = it.y+'px';
+        };
+        const up = ()=>{ save(); window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); };
+        window.addEventListener('pointermove', move); window.addEventListener('pointerup', up);
+      });
+
+      world.appendChild(el);
+    }
+  }
+
+  function selectOnly(el){ document.querySelectorAll('.item.selected').forEach(x=>x.classList.remove('selected')); if(el) el.classList.add('selected'); }
+  function polylineToPath(pts){ if(!pts.length) return ''; let d='M ' + pts[0].x + ' ' + pts[0].y; for(let i=1;i<pts.length;i++){ d += ' L ' + pts[i].x + ' ' + pts[i].y; } return d; }
+  function addItem(obj){ items.push(obj); save(); render(); }
+
+  // Paste handling — persist images as Data URLs
+  window.addEventListener('paste', async (e)=>{
+    const cd = e.clipboardData; if(!cd) return;
+
+    for(const it of cd.items){
+      if(it.kind==='file'){
+        const file = it.getAsFile();
+        if(file && file.type.indexOf('image/')===0){
+          e.preventDefault();
+          const dataUrl = await fileToDataUrl(file);
+          addItem({ id: crypto.randomUUID(), type:'image', data:dataUrl, x:lastClickWorld.x, y:lastClickWorld.y });
+          showToast('Image pasted');
+          return;
+        }
+      }
+    }
+
+    const text = cd.getData('text');
+    if(text){
+      e.preventDefault();
+      let isUrl = false; let full = text;
+      try{ full = new URL(text, window.location.href).href; isUrl = true; }catch{}
+      addItem({ id: crypto.randomUUID(), type: isUrl ? 'link' : 'text', data: full, x:lastClickWorld.x, y:lastClickWorld.y });
+      showToast(isUrl ? 'Link pasted' : 'Text pasted');
+    }
+  });
+
+  function fileToDataUrl(file){ return new Promise((res,rej)=>{ const fr=new FileReader(); fr.onload=()=>res(fr.result); fr.onerror=rej; fr.readAsDataURL(file); }); }
+
+  // Track drop point & panning
+  wrap.addEventListener('pointerdown', (e)=>{
+    if(spaceHeld || e.button===1){ panning=true; wrap.setPointerCapture(e.pointerId); panStart={x:e.clientX,y:e.clientY}; originStart={...origin}; return; }
+
+    const worldPt = screenToWorld(e.clientX, e.clientY); lastClickWorld = worldPt; cursor.hidden=false; updateCursor(); selectOnly(null);
+
+    if(mode==='pen' || mode==='arrow') startDrawing(worldPt);
+  });
+
+  function startDrawing(startPt){
+    drawing = { type: mode==='pen' ? 'path' : 'arrow', color: strokeColor, w: 3 };
+    if(drawing.type==='path'){
+      drawing.pts = [startPt];
+      const path = document.createElementNS('http://www.w3.org/2000/svg','path');
+      path.setAttribute('fill','none'); path.setAttribute('stroke-linecap','round'); path.setAttribute('stroke-linejoin','round');
+      path.setAttribute('stroke', drawing.color); path.setAttribute('stroke-width', drawing.w);
+      path.setAttribute('d', 'M ' + startPt.x + ' ' + startPt.y);
+      overlay.appendChild(path); drawing.tempEl = path;
+    } else {
+      drawing.start = startPt;
+      const line = document.createElementNS('http://www.w3.org/2000/svg','line');
+      line.setAttribute('x1', startPt.x); line.setAttribute('y1', startPt.y); line.setAttribute('x2', startPt.x); line.setAttribute('y2', startPt.y);
+      line.setAttribute('stroke', drawing.color); line.setAttribute('stroke-width', drawing.w); line.setAttribute('marker-end','url(#arrowhead)');
+      overlay.appendChild(line); drawing.tempEl = line;
+    }
+  }
+
+  wrap.addEventListener('pointermove', (e)=>{
+    if(panning){ const dx=e.clientX-panStart.x, dy=e.clientY-panStart.y; origin={ x:originStart.x+dx, y:originStart.y+dy }; applyTransform(); save(); return; }
+    if(!drawing) return;
+    const w = screenToWorld(e.clientX, e.clientY);
+    if(drawing.type==='path'){
+      const last = drawing.pts[drawing.pts.length-1];
+      if(e.shiftKey){ // simple axis snap relative to last segment
+        if(Math.abs(w.x-last.x) > Math.abs(w.y-last.y)) w.y = last.y; else w.x = last.x;
+      }
+      drawing.pts.push(w);
+      drawing.tempEl.setAttribute('d', polylineToPath(drawing.pts));
+    } else {
+      drawing.tempEl.setAttribute('x2', w.x); drawing.tempEl.setAttribute('y2', w.y);
+    }
+  });
+
+  wrap.addEventListener('pointerup', (e)=>{
+    if(panning){ panning=false; wrap.releasePointerCapture(e.pointerId); return; }
+    if(!drawing) return;
+    if(drawing.type==='path'){
+      const obj = { id: crypto.randomUUID(), type:'path', color: drawing.color, w: drawing.w, pts: drawing.pts };
+      items.push(obj); overlay.removeChild(drawing.tempEl); drawing=null; save(); render();
+    } else {
+      const end = screenToWorld(e.clientX, e.clientY);
+      const obj = { id: crypto.randomUUID(), type:'arrow', color: drawing.color, w: drawing.w, x1:drawing.start.x, y1:drawing.start.y, x2:end.x, y2:end.y };
+      items.push(obj); overlay.removeChild(drawing.tempEl); drawing=null; save(); render();
+    }
+  });
+
+  // Zoom with ctrl/cmd + wheel
+  wrap.addEventListener('wheel', (e)=>{
+    if(!(e.ctrlKey || e.metaKey)) return; e.preventDefault();
+    const mouse = {x:e.clientX, y:e.clientY}; const before = screenToWorld(mouse.x, mouse.y);
+    const factor = Math.exp(-e.deltaY * 0.0015); const newScale = Math.min(3, Math.max(0.2, scale * factor));
+    scale = newScale; const afterScreen = worldToScreen(before.x, before.y); origin.x += (mouse.x - afterScreen.x); origin.y += (mouse.y - afterScreen.y);
+    applyTransform(); save();
+  }, {passive:false});
+
+  function updateCursor(){ const p = worldToScreen(lastClickWorld.x, lastClickWorld.y); cursor.style.left = p.x + 'px'; cursor.style.top = p.y + 'px'; }
+
+  // Keyboard shortcuts
+  window.addEventListener('keydown', (e)=>{
+    if(e.code==='Space') spaceHeld=true;
+    if((e.key==='Delete' || e.key==='Backspace') && !e.target.closest('input,textarea,div[contenteditable]')){
+      const sel = document.querySelector('.item.selected');
+      if(sel){ const id = sel.dataset.id; items = items.filter(x=>x.id!==id); render(); save(); showToast('Deleted'); }
+    }
+  });
+  window.addEventListener('keyup', (e)=>{ if(e.code==='Space') spaceHeld=false; });
+
+  // Export / Import / Clear
+  btnExport.onclick = () => { const data = {items, origin, scale, exportedAt: new Date().toISOString()}; const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'}); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'pasteboard.json'; a.click(); };
+  btnImport.onclick = async () => { const input = document.createElement('input'); input.type='file'; input.accept='.json,application/json'; input.onchange = async () => { const file = input.files[0]; if(!file) return; const text = await file.text(); try{ const obj = JSON.parse(text); items = obj.items||[]; origin = obj.origin||origin; scale = obj.scale||scale; save(); applyTransform(); render(); showToast('Imported'); } catch{ showToast('Invalid JSON'); } }; input.click(); };
+  btnClear.onclick = () => { if(confirm('Clear all items?')){ items = []; save(); render(); showToast('Cleared'); } };
+
+  // Init
+  applyTransform(); renderPalette(); render();
+})();
+</script>
+</body>
+</html>
