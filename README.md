@@ -1,1 +1,0 @@
-create a todo app with feature to add task with expiration date, a copy paste section to paste things you dont want to forget, adding events which also sync to calendar a system to add important documents for quicker access also a substorage system to keep things 
