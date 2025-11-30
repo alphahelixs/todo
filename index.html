@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Campus Room Booking</title>
+  <style>
+    :root {
+      --green-100: #f0fff4;
+      --green-300: #9ae6b4;
+      --green-500: #48bb78;
+      --green-700: #2f855a;
+      --gray-100: #f7fafc;
+      --gray-300: #e2e8f0;
+      --gray-500: #a0aec0;
+      --card-radius: 10px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: "Segoe UI", Tahoma, sans-serif;
+      margin: 0;
+      background: linear-gradient(180deg, var(--green-100), #ffffff);
+      color: #1a202c;
+    }
+
+    header {
+      background: var(--green-500);
+      color: white;
+      padding: 1.5rem 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    }
+
+    header h1 {
+      margin: 0;
+      font-size: 1.6rem;
+      letter-spacing: 0.5px;
+    }
+
+    .tag {
+      background: rgba(255, 255, 255, 0.2);
+      padding: 0.4rem 0.8rem;
+      border-radius: 999px;
+      font-size: 0.9rem;
+    }
+
+    main {
+      padding: 1.5rem;
+      display: grid;
+      grid-template-columns: 320px 1fr;
+      gap: 1rem;
+    }
+
+    @media (max-width: 960px) {
+      main {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .panel {
+      background: white;
+      border: 1px solid var(--gray-300);
+      border-radius: var(--card-radius);
+      padding: 1rem 1.25rem;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.04);
+    }
+
+    .panel h2 {
+      margin: 0 0 0.8rem;
+      font-size: 1.2rem;
+      color: var(--green-700);
+    }
+
+    .form-row {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 0.8rem;
+      margin-bottom: 0.8rem;
+    }
+
+    label {
+      display: block;
+      font-weight: 600;
+      margin-bottom: 0.35rem;
+      color: #2d3748;
+    }
+
+    input, select, textarea {
+      width: 100%;
+      padding: 0.55rem 0.7rem;
+      border-radius: 8px;
+      border: 1px solid var(--gray-300);
+      background: var(--gray-100);
+      font-size: 0.95rem;
+    }
+
+    textarea { height: 60px; resize: vertical; }
+
+    .actions {
+      display: flex;
+      gap: 0.6rem;
+      margin-top: 0.6rem;
+    }
+
+    button {
+      border: none;
+      padding: 0.65rem 1rem;
+      border-radius: 8px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform 0.05s ease, box-shadow 0.1s ease;
+    }
+
+    button.primary {
+      background: var(--green-500);
+      color: white;
+      box-shadow: 0 4px 12px rgba(72, 187, 120, 0.35);
+    }
+
+    button.secondary {
+      background: white;
+      color: var(--green-700);
+      border: 1px solid var(--green-300);
+    }
+
+    button:active { transform: translateY(1px); }
+
+    .muted {
+      color: var(--gray-500);
+      font-size: 0.9rem;
+    }
+
+    .chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+    }
+
+    .chip {
+      background: var(--green-100);
+      padding: 0.35rem 0.65rem;
+      border-radius: 999px;
+      border: 1px solid var(--green-300);
+      color: #22543d;
+      font-weight: 600;
+      font-size: 0.9rem;
+    }
+
+    .suggestions, .manual-result {
+      margin-top: 1rem;
+      display: grid;
+      gap: 0.8rem;
+    }
+
+    .suggestion-card {
+      border: 1px solid var(--gray-300);
+      border-radius: var(--card-radius);
+      padding: 0.8rem 1rem;
+      background: linear-gradient(145deg, #ffffff, #f8fff9);
+    }
+
+    .suggestion-card h3 {
+      margin: 0 0 0.35rem;
+      color: #1a202c;
+    }
+
+    .calendar-wrapper {
+      margin-top: 1rem;
+    }
+
+    .calendar-controls {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.6rem;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .calendar {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+      border: 1px solid var(--gray-300);
+    }
+
+    .calendar th, .calendar td {
+      border: 1px solid var(--gray-300);
+      padding: 0.5rem;
+      text-align: center;
+      min-height: 60px;
+      position: relative;
+      background: #ffffff;
+    }
+
+    .calendar th {
+      background: var(--gray-100);
+      font-weight: 700;
+    }
+
+    .event {
+      background: var(--green-300);
+      color: #1a202c;
+      border-radius: 6px;
+      padding: 0.3rem 0.4rem;
+      font-size: 0.85rem;
+      display: inline-block;
+      width: 100%;
+      box-sizing: border-box;
+    }
+
+    .legend {
+      display: flex;
+      gap: 0.8rem;
+      align-items: center;
+      flex-wrap: wrap;
+      margin-top: 0.3rem;
+    }
+
+    .legend span {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      font-size: 0.9rem;
+      color: #2d3748;
+    }
+
+    .dot {
+      width: 14px;
+      height: 14px;
+      border-radius: 999px;
+      display: inline-block;
+    }
+
+    .dot.busy { background: var(--green-500); }
+    .dot.class { background: #f6ad55; }
+    .dot.request { background: #63b3ed; }
+
+    .inline-note {
+      border-left: 4px solid var(--green-500);
+      padding-left: 0.6rem;
+      color: #2d3748;
+      background: var(--green-100);
+      border-radius: 4px;
+      margin-top: 0.3rem;
+      font-size: 0.95rem;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Campus Room Booking</h1>
+    <div class="tag">Smooth green • White theme</div>
+  </header>
+  <main>
+    <section class="panel" aria-label="Booking form">
+      <h2>Request Details</h2>
+      <div class="form-row">
+        <div>
+          <label for="role">Role</label>
+          <select id="role">
+            <option value="admin">Admin</option>
+            <option value="professor">Professor</option>
+            <option value="teachingFellow">Teaching Fellow</option>
+          </select>
+        </div>
+        <div>
+          <label for="day">Day</label>
+          <select id="day">
+            <option value="Monday">Monday</option>
+            <option value="Tuesday">Tuesday</option>
+            <option value="Wednesday">Wednesday</option>
+            <option value="Thursday">Thursday</option>
+            <option value="Friday">Friday</option>
+            <option value="Saturday">Saturday</option>
+            <option value="Sunday">Sunday</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div>
+          <label for="time">Start time</label>
+          <input id="time" type="time" value="10:00">
+        </div>
+        <div>
+          <label for="duration">Duration (hours)</label>
+          <input id="duration" type="number" value="2" min="0.5" step="0.5">
+        </div>
+      </div>
+      <div class="form-row">
+        <div>
+          <label for="capacity">Expected size</label>
+          <input id="capacity" type="number" value="40" min="1">
+        </div>
+        <div>
+          <label for="features">Required features</label>
+          <input id="features" type="text" placeholder="Projector, AV, whiteboard">
+        </div>
+      </div>
+      <p class="muted">Roles have booking limits: Admin (6h), Professor (4h), Teaching Fellow (3h) per request.</p>
+      <div class="actions">
+        <button class="primary" id="autoSuggest">Automatic suggestion</button>
+        <button class="secondary" id="manualMode">Manual room selection</button>
+      </div>
+      <div class="suggestions" id="suggestions" aria-live="polite"></div>
+    </section>
+
+    <section class="panel" aria-label="Schedules">
+      <h2>Schedule & Manual selection</h2>
+      <div class="form-row">
+        <div>
+          <label for="location">Location</label>
+          <select id="location"></select>
+        </div>
+        <div>
+          <label for="room">Room</label>
+          <select id="room"></select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div>
+          <label for="manualDay">Day</label>
+          <select id="manualDay">
+            <option value="Monday">Monday</option>
+            <option value="Tuesday">Tuesday</option>
+            <option value="Wednesday">Wednesday</option>
+            <option value="Thursday">Thursday</option>
+            <option value="Friday">Friday</option>
+            <option value="Saturday">Saturday</option>
+            <option value="Sunday">Sunday</option>
+          </select>
+        </div>
+        <div>
+          <label for="manualTime">Start time</label>
+          <input id="manualTime" type="time" value="09:00">
+        </div>
+      </div>
+      <div class="form-row">
+        <div>
+          <label for="manualDuration">Duration (hours)</label>
+          <input id="manualDuration" type="number" value="1.5" min="0.5" step="0.5">
+        </div>
+        <div>
+          <label>&nbsp;</label>
+          <button class="primary" id="checkManual">Check & reserve manually</button>
+        </div>
+      </div>
+      <div class="manual-result" id="manualResult" aria-live="polite"></div>
+      <div class="calendar-wrapper">
+        <div class="calendar-controls">
+          <div>
+            <strong>Room calendar</strong>
+            <p class="muted" id="calendarTitle">Select a room to see its weekly schedule.</p>
+          </div>
+          <div class="legend">
+            <span><span class="dot busy"></span> Regular class</span>
+            <span><span class="dot request"></span> Requested slot</span>
+          </div>
+        </div>
+        <table class="calendar" id="calendar" aria-label="Weekly calendar">
+          <thead></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const roleLimits = {
+      admin: 6,
+      professor: 4,
+      teachingFellow: 3
+    };
+
+    const locations = {
+      "LHC": [
+        {
+          name: "LHC-101",
+          capacity: 120,
+          features: ["Projector", "AV", "Whiteboard"],
+          schedule: [
+            { day: "Monday", start: "09:00", end: "11:00", title: "CS101 lecture" },
+            { day: "Wednesday", start: "10:00", end: "12:00", title: "Math core" }
+          ]
+        },
+        {
+          name: "LHC-202",
+          capacity: 60,
+          features: ["Projector", "Whiteboard"],
+          schedule: [
+            { day: "Tuesday", start: "14:00", end: "16:00", title: "Statistics lab" },
+            { day: "Thursday", start: "09:00", end: "10:30", title: "Guest seminar" }
+          ]
+        }
+      ],
+      "Old Acad": [
+        {
+          name: "OA-12",
+          capacity: 45,
+          features: ["Whiteboard"],
+          schedule: [
+            { day: "Monday", start: "11:00", end: "12:00", title: "History 201" },
+            { day: "Friday", start: "15:00", end: "17:00", title: "Tutorial" }
+          ]
+        },
+        {
+          name: "OA-22",
+          capacity: 30,
+          features: ["Projector", "AV"],
+          schedule: [
+            { day: "Wednesday", start: "13:00", end: "15:00", title: "Econ elective" }
+          ]
+        }
+      ],
+      "Library": [
+        {
+          name: "Lib-Conference",
+          capacity: 25,
+          features: ["Video conferencing", "Whiteboard"],
+          schedule: [
+            { day: "Thursday", start: "11:00", end: "12:30", title: "Research review" }
+          ]
+        },
+        {
+          name: "Lib-Workshop",
+          capacity: 50,
+          features: ["Projector", "AV", "Recording"],
+          schedule: [
+            { day: "Tuesday", start: "09:00", end: "11:00", title: "Orientation" },
+            { day: "Friday", start: "10:00", end: "12:00", title: "Workshop" }
+          ]
+        }
+      ],
+      "R&D Building": [
+        {
+          name: "RND-1",
+          capacity: 20,
+          features: ["Whiteboard", "AV"],
+          schedule: [
+            { day: "Monday", start: "14:00", end: "16:00", title: "Lab sync" }
+          ]
+        },
+        {
+          name: "RND-2",
+          capacity: 35,
+          features: ["Projector", "Whiteboard"],
+          schedule: [
+            { day: "Thursday", start: "15:00", end: "17:00", title: "Demo day" }
+          ]
+        }
+      ]
+    };
+
+    const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+    const timeSlots = ["08:00", "09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00", "18:00", "19:00", "20:00"];
+
+    const suggestionsEl = document.getElementById('suggestions');
+    const locationEl = document.getElementById('location');
+    const roomEl = document.getElementById('room');
+    const calendarTitle = document.getElementById('calendarTitle');
+    const calendar = document.getElementById('calendar');
+    const manualResult = document.getElementById('manualResult');
+
+    function timeToMinutes(time) {
+      const [h, m] = time.split(':').map(Number);
+      return h * 60 + m;
+    }
+
+    function overlaps(startA, endA, startB, endB) {
+      return startA < endB && startB < endA;
+    }
+
+    function loadLocations() {
+      locationEl.innerHTML = Object.keys(locations).map(loc => `<option value="${loc}">${loc}</option>`).join('');
+      updateRooms();
+    }
+
+    function updateRooms() {
+      const selectedLocation = locationEl.value;
+      const rooms = locations[selectedLocation];
+      roomEl.innerHTML = rooms.map(r => `<option value="${r.name}">${r.name}</option>`).join('');
+      renderCalendar();
+    }
+
+    function renderCalendar(request = null) {
+      const selectedLocation = locationEl.value;
+      const rooms = locations[selectedLocation];
+      const room = rooms.find(r => r.name === roomEl.value) || rooms[0];
+      if (!room) return;
+
+      calendarTitle.textContent = `${room.name} • Capacity ${room.capacity}`;
+      const thead = calendar.querySelector('thead');
+      const tbody = calendar.querySelector('tbody');
+      thead.innerHTML = '<tr><th>Day / Time</th>' + timeSlots.map(t => `<th>${t}</th>`).join('') + '</tr>';
+      tbody.innerHTML = '';
+
+      days.forEach(day => {
+        const row = document.createElement('tr');
+        row.innerHTML = `<th>${day}</th>` + timeSlots.map(() => '<td></td>').join('');
+        tbody.appendChild(row);
+      });
+
+      room.schedule.forEach(event => placeEvent(event, 'busy'));
+      if (request) {
+        placeEvent({ day: request.day, start: request.start, end: request.end, title: 'Requested' }, 'request');
+      }
+
+      function placeEvent(event, type) {
+        const rowIndex = days.indexOf(event.day);
+        if (rowIndex === -1) return;
+        const row = tbody.children[rowIndex];
+        const startIndex = timeSlots.findIndex(t => timeToMinutes(t) >= timeToMinutes(event.start));
+        const endIndex = timeSlots.findIndex(t => timeToMinutes(t) >= timeToMinutes(event.end));
+        const targetCells = [];
+        for (let i = startIndex; i < (endIndex === -1 ? timeSlots.length : endIndex); i++) {
+          targetCells.push(row.children[i + 1]);
+        }
+        targetCells.forEach((cell, idx) => {
+          const label = idx === 0 ? `${event.start} - ${event.end} • ${event.title}` : '';
+          cell.innerHTML = `<span class="event ${type === 'request' ? 'request' : ''}">${label}</span>`;
+          cell.style.background = type === 'request' ? '#c3dafe' : '#c6f6d5';
+        });
+      }
+    }
+
+    function matchesFeatures(room, required) {
+      if (!required.length) return true;
+      return required.every(feat => room.features.some(rf => rf.toLowerCase().includes(feat)));
+    }
+
+    function isAvailable(room, day, start, durationHours) {
+      const startMins = timeToMinutes(start);
+      const endMins = startMins + durationHours * 60;
+      return !room.schedule.some(s => overlaps(startMins, endMins, timeToMinutes(s.start), timeToMinutes(s.end)));
+    }
+
+    function handleAutoSuggest() {
+      const role = document.getElementById('role').value;
+      const day = document.getElementById('day').value;
+      const time = document.getElementById('time').value;
+      const duration = parseFloat(document.getElementById('duration').value);
+      const capacity = parseInt(document.getElementById('capacity').value, 10);
+      const features = document.getElementById('features').value.split(',').map(f => f.trim().toLowerCase()).filter(Boolean);
+
+      if (duration > roleLimits[role]) {
+        suggestionsEl.innerHTML = `<div class="inline-note">${role} bookings are limited to ${roleLimits[role]} hours.</div>`;
+        return;
+      }
+
+      const results = [];
+      Object.entries(locations).forEach(([locName, rooms]) => {
+        rooms.forEach(room => {
+          if (room.capacity < capacity) return;
+          if (!matchesFeatures(room, features)) return;
+          if (!isAvailable(room, day, time, duration)) return;
+          results.push({ locName, room });
+        });
+      });
+
+      if (!results.length) {
+        suggestionsEl.innerHTML = '<p class="muted">No automatic matches found. Try adjusting requirements or use manual selection.</p>';
+        return;
+      }
+
+      suggestionsEl.innerHTML = results.map(({ locName, room }) => `
+        <div class="suggestion-card">
+          <h3>${room.name} • ${locName}</h3>
+          <div class="chips">
+            <span class="chip">Capacity: ${room.capacity}</span>
+            ${room.features.map(f => `<span class="chip">${f}</span>`).join('')}
+          </div>
+          <p class="muted">Available on ${day} starting ${time} for ${duration}h.</p>
+        </div>
+      `).join('');
+    }
+
+    function handleManualCheck() {
+      const selectedLocation = locationEl.value;
+      const roomName = roomEl.value;
+      const day = document.getElementById('manualDay').value;
+      const time = document.getElementById('manualTime').value;
+      const duration = parseFloat(document.getElementById('manualDuration').value);
+      const role = document.getElementById('role').value;
+
+      if (duration > roleLimits[role]) {
+        manualResult.innerHTML = `<div class="inline-note">${role} bookings are limited to ${roleLimits[role]} hours.</div>`;
+        return;
+      }
+
+      const room = locations[selectedLocation].find(r => r.name === roomName);
+      if (!room) return;
+
+      const available = isAvailable(room, day, time, duration);
+      if (available) {
+        manualResult.innerHTML = `<div class="suggestion-card"><strong>${room.name}</strong> is available on ${day} at ${time} for ${duration}h.</div>`;
+      } else {
+        manualResult.innerHTML = `<div class="inline-note">The room is busy during that time. Pick another slot.</div>`;
+      }
+      renderCalendar({ day, start: time, end: minutesToTime(timeToMinutes(time) + duration * 60) });
+    }
+
+    function minutesToTime(minutes) {
+      const h = Math.floor(minutes / 60).toString().padStart(2, '0');
+      const m = Math.floor(minutes % 60).toString().padStart(2, '0');
+      return `${h}:${m}`;
+    }
+
+    document.getElementById('autoSuggest').addEventListener('click', handleAutoSuggest);
+    document.getElementById('manualMode').addEventListener('click', () => {
+      document.querySelector('main').scrollIntoView({ behavior: 'smooth', block: 'start' });
+      manualResult.innerHTML = '<p class="muted">Use the selectors below to manually request a room.</p>';
+    });
+    document.getElementById('checkManual').addEventListener('click', handleManualCheck);
+    locationEl.addEventListener('change', updateRooms);
+    roomEl.addEventListener('change', () => renderCalendar());
+
+    loadLocations();
+  </script>
+</body>
+</html>
